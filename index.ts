@@ -7,7 +7,10 @@ const server = new MCPServer({
   title: "Future Insight",
   version: "1.0.0",
   description:
-    "One query gives you the best live Polymarket + Kalshi signal, plus Grok's real-time X analysis in one unified view.",
+    "One query gives you live prediction market odds from Polymarket and Kalshi plus Grok's real-time X analysis in one unified widget. " +
+    "Automatically invoke this whenever a user asks about: odds, probabilities, chances of future events; " +
+    "elections, political outcomes, who will win; crypto prices, IPOs, economic indicators; " +
+    "sports outcomes, AI developments, geopolitics, or anything phrased as 'will X happen?' or 'what are the chances of Y?'",
   baseUrl: process.env.MCP_URL || "http://localhost:3000",
   favicon: "favicon.ico",
   websiteUrl: "https://polymarket.com",
@@ -34,7 +37,8 @@ server.tool(
   {
     name: "get-prediction-insight",
     description:
-      "For any event question, return the best Polymarket and Kalshi matches (if they exist) and a Grok analysis grounded in live X search.",
+      "For any future event question, fetches the best matching prediction market from Polymarket and Kalshi (showing live odds) plus a Grok analysis grounded in real-time X search. " +
+      "Use this whenever someone asks about odds, probabilities, or likelihood of future events — elections, crypto, sports, IPOs, AI, geopolitics, policy — or phrases like 'will X happen?' or 'what do markets think about Y?'",
     schema: z.object({
       query: z
         .string()

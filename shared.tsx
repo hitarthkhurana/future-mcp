@@ -24,10 +24,11 @@ export function useColors() {
     link: dark ? "#60a5fa" : "#2563eb",
     ctaBg: dark ? "#3b82f6" : "#2563eb",
     ctaText: "#ffffff",
-    pmBadge: dark ? "#6366f1" : "#4f46e5",
-    pmBadgeBg: dark ? "rgba(99,102,241,0.15)" : "rgba(79,70,229,0.1)",
-    kBadge: dark ? "#f59e0b" : "#d97706",
-    kBadgeBg: dark ? "rgba(245,158,11,0.15)" : "rgba(217,119,6,0.1)",
+    // Official brand colors: Polymarket #2E5CFF, Kalshi #26C485
+    pmBadge: dark ? "#6b87ff" : "#2E5CFF",
+    pmBadgeBg: dark ? "rgba(46,92,255,0.18)" : "rgba(46,92,255,0.1)",
+    kBadge: dark ? "#4dd9a0" : "#26C485",
+    kBadgeBg: dark ? "rgba(38,196,133,0.18)" : "rgba(38,196,133,0.1)",
     fusedBadge: dark ? "#8b5cf6" : "#7c3aed",
     fusedBadgeBg: dark ? "rgba(139,92,246,0.15)" : "rgba(124,58,237,0.1)",
     actionBtn: dark ? "#374151" : "#f3f4f6",
@@ -63,6 +64,93 @@ export function formatDate(raw: unknown): string {
 
 export function formatPct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
+}
+
+// ─── Probability arc (SVG gauge) ─────────────────────────────────────────────
+
+export function ProbArc({
+  pct,
+  color,
+  trackColor,
+  label,
+  size = 100,
+}: {
+  pct: number;
+  color: string;
+  trackColor: string;
+  label?: string;
+  size?: number;
+}) {
+  const radius = 38;
+  const cx = 50;
+  const cy = 50;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, pct));
+  const offset = circumference * (1 - clamped / 100);
+  const ff = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      width={size}
+      height={size}
+      style={{ display: "block", flexShrink: 0 }}
+    >
+      {/* Track */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        fill="none"
+        stroke={trackColor}
+        strokeWidth={8.5}
+      />
+      {/* Progress */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth={8.5}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        style={{
+          transform: "rotate(-90deg)",
+          transformOrigin: "50% 50%",
+          transition: "stroke-dashoffset 0.75s cubic-bezier(0.4,0,0.2,1)",
+        }}
+      />
+      {/* Center: percentage */}
+      <text
+        x={cx}
+        y={label ? cy - 4 : cy + 6}
+        textAnchor="middle"
+        fontSize={17}
+        fontWeight="700"
+        fill={color}
+        fontFamily={ff}
+      >
+        {clamped.toFixed(1)}%
+      </text>
+      {/* Center: outcome label */}
+      {label && (
+        <text
+          x={cx}
+          y={cy + 12}
+          textAnchor="middle"
+          fontSize={9}
+          fontWeight="600"
+          fill={color}
+          opacity={0.75}
+          fontFamily={ff}
+        >
+          {label.toUpperCase()}
+        </text>
+      )}
+    </svg>
+  );
 }
 
 // ─── Probability bar ─────────────────────────────────────────────────────────

@@ -11,9 +11,9 @@ const GAMMA = "https://gamma-api.polymarket.com";
 const KALSHI = "https://api.elections.kalshi.com/trade-api/v2";
 const XAI = "https://api.x.ai/v1";
 const GROK_SYSTEM_PROMPT =
-  "You are a prediction-market analyst. Use provided market context plus live X/web tools. " +
-  "Use at most 2 total search tool calls. " +
-  "Be concise, concrete, and decision-useful. If data conflicts, call it out explicitly.";
+  "You are a real-time news and social intelligence assistant. " +
+  "Your job is to surface fresh signal from X and the web — NOT to analyze market odds or probabilities. " +
+  "Use at most 2 search tool calls. Be concise and specific: include real post excerpts, dates, and named sources where possible.";
 
 const cache = new Map<string, { data: unknown; expires: number }>();
 const TTL_SHORT = 30_000;
@@ -449,13 +449,14 @@ function buildGrokPrompt(
 
   lines.push("");
   lines.push(
-    "Task: Use X search to explain what is driving this question right now. Keep it concise and practical."
+    "Task: Use X search to surface the freshest real-world signal on this question. " +
+    "Do NOT interpret or explain the market odds — the user can see those already. " +
+    "Focus entirely on what is happening in the real world RIGHT NOW."
   );
-  lines.push("Return exactly four short sections:");
-  lines.push("1) Market read (how to interpret the current odds)");
-  lines.push("2) X pulse (what people are saying on X)");
-  lines.push("3) Bull vs bear (one strong case each)");
-  lines.push("4) What to watch next (near-term catalysts)");
+  lines.push("Return exactly three short sections:");
+  lines.push("1) X pulse: most relevant posts/sentiment on X in the last 48 hours, with approximate dates");
+  lines.push("2) Latest news: key headlines or developments driving this question today");
+  lines.push("3) Catalysts: specific upcoming events, dates, or triggers that could move this market");
 
   return lines.join("\n");
 }
