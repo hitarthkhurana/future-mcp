@@ -6,7 +6,10 @@ const server = new MCPServer({
   title: "Polymarket",
   version: "1.0.0",
   description:
-    "Live prediction market data from Polymarket. Use when users ask about odds, probabilities, or the likelihood of future events — elections, crypto prices, sports, AI, geopolitics, and more.",
+    "Live prediction market data from Polymarket — the world's largest prediction market. " +
+    "Automatically use this whenever a user asks about: odds, probabilities, chances, likelihood of future events; " +
+    "elections, political outcomes, who will win; crypto prices, Bitcoin, Ethereum, stock IPOs; " +
+    "sports results, AI developments, geopolitics, regulations, company news, or anything phrased as 'will X happen?'",
   baseUrl: process.env.MCP_URL || "http://localhost:3000",
   favicon: "favicon.ico",
   websiteUrl: "https://polymarket.com",
@@ -85,11 +88,12 @@ server.tool(
           if (!res.ok) throw new Error(`Gamma API ${res.status}`);
           const data = (await res.json()) as { events?: Array<{ markets?: Record<string, unknown>[] }> };
 
-          // Flatten markets from all events, keep only open (active=True, closed=False)
+          // Flatten markets from all events, keep only open markets
+          // active/closed are JSON booleans (true/false), not strings
           const flat: Record<string, unknown>[] = [];
           for (const event of data.events ?? []) {
             for (const m of event.markets ?? []) {
-              if (String(m.active) === "True" && String(m.closed) === "False") {
+              if (m.active === true && m.closed === false) {
                 flat.push(m);
               }
             }
@@ -141,12 +145,25 @@ server.tool(
   async ({ limit = 6 }) => {
     try {
       const markets = await cached(`trending:${limit}`, TTL, async () => {
-          // volume_24hr = currently hot markets, not all-time volume
-          const res = await fetch(
-            `${GAMMA}/markets?${ACTIVE_FILTER}&order=volume_24hr&ascending=false&limit=${limit}`
-          );
+        // Use the events endpoint — it supports volume sort and nests markets per topic,
+        // giving us the most actively traded prediction market topics right now
+        const res = await fetch(
+          `${GAMMA}/events?${ACTIVE_FILTER}&order=volume&ascending=false&limit=${Math.ceil(limit * 1.5)}`
+        );
         if (!res.ok) throw new Error(`Gamma API ${res.status}`);
-        return res.json();
+        const events = (await res.json()) as Array<{ markets?: Record<string, unknown>[] }>;
+
+        // Flatten: take first market from each event to get one card per topic
+        const flat: Record<string, unknown>[] = [];
+        for (const event of events) {
+          const eventMarkets = event.markets ?? [];
+          // For single-outcome events take the one market; for multi-outcome take first
+          if (eventMarkets.length > 0) {
+            flat.push(eventMarkets[0]);
+          }
+          if (flat.length >= limit) break;
+        }
+        return flat.slice(0, limit);
       });
       return widget({
         props: { markets, title: "Trending Prediction Markets" },
