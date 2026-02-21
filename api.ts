@@ -181,11 +181,31 @@ function parsePolymarketProbability(market: PolymarketRawMarket): {
   return { probability: topProb, label };
 }
 
+// Polymarket's public-search works best with short keyword phrases.
+// LLMs send full natural-language questions, so we strip the fluff first.
+function distillQuery(query: string): string {
+  const stopRe =
+    /\b(what|when|who|will|how|why|which|is|are|do|does|can|could|would|should|the|a|an|of|in|on|at|to|for|with|by|from|and|or|but|not|be|been|have|has|had|there|their|they|we|you|i|it|its|my|our|your|this|that|these|those|going|chance|chances|odds|likelihood|happen|happening|soon|ever|before|after|about|around|during|if)\b/gi;
+
+  const cleaned = query
+    .replace(stopRe, " ")
+    .replace(/[^a-z0-9\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Take at most the first 5 meaningful words
+  const words = cleaned.split(" ").filter(Boolean).slice(0, 5);
+  return words.join(" ");
+}
+
 async function fetchPolymarketSearch(query: string): Promise<PolymarketRawMarket[]> {
-  return cached(`pm:search:${query}`, TTL_SHORT, async () => {
+  const searchTerm = distillQuery(query);
+  const cacheKey = `pm:search:${searchTerm}`;
+  return cached(cacheKey, TTL_SHORT, async () => {
     try {
+      console.info(`[pm] search term: "${searchTerm}" (from query: "${query.slice(0, 60)}")`);
       const response = await fetch(
-        `${GAMMA}/public-search?q=${encodeURIComponent(query)}&limit=8`
+        `${GAMMA}/public-search?q=${encodeURIComponent(searchTerm)}&limit=8`
       );
       if (!response.ok) return [];
       const data = (await response.json()) as {
