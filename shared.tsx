@@ -1,5 +1,5 @@
 import { useWidgetTheme } from "mcp-use/react";
-import React from "react";
+import React, { useState, useEffect } from "react";
 
 // ─── Theme-aware colors ──────────────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ export function formatPct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
-// ─── Probability arc (SVG gauge) ─────────────────────────────────────────────
+// ─── Probability arc (SVG gauge with animated fill + spark tip) ──────────────
 
 export function ProbArc({
   pct,
@@ -81,22 +81,63 @@ export function ProbArc({
   label?: string;
   size?: number;
 }) {
+  // Stable filter/animation ID per instance
+  const [uid] = useState(
+    () => `arc${Math.random().toString(36).slice(2, 7)}`
+  );
+
+  // Animate from 0 → pct on mount (and on pct change)
+  const [animPct, setAnimPct] = useState(0);
+  useEffect(() => {
+    setAnimPct(0);
+    const t = setTimeout(() => setAnimPct(pct), 60);
+    return () => clearTimeout(t);
+  }, [pct]);
+
   const radius = 38;
   const cx = 50;
   const cy = 50;
   const circumference = 2 * Math.PI * radius;
-  const clamped = Math.max(0, Math.min(100, pct));
+  const clamped = Math.max(0, Math.min(100, animPct));
   const offset = circumference * (1 - clamped / 100);
+
+  // The tip dot lives at the top of the circle (12 o'clock) inside a <g>
+  // that we rotate by clamped/100*360 deg — same easing as the arc fill.
+  const tipDeg = (clamped / 100) * 360;
+  const tipX = cx;          // top of circle, x unchanged
+  const tipY = cy - radius; // top of circle, y = center - radius
+
+  const showTip = clamped > 2 && clamped < 99;
   const ff = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  const easing = "1.4s cubic-bezier(0.34, 1.2, 0.64, 1)";
 
   return (
     <svg
       viewBox="0 0 100 100"
       width={size}
       height={size}
-      style={{ display: "block", flexShrink: 0 }}
+      style={{ display: "block", flexShrink: 0, overflow: "visible" }}
     >
-      {/* Track */}
+      <defs>
+        {/* Glow filter for the arc stroke */}
+        <filter id={uid} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        {/* Stronger glow for the tip dot */}
+        <filter id={`${uid}t`} x="-150%" y="-150%" width="400%" height="400%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* Track circle */}
       <circle
         cx={cx}
         cy={cy}
@@ -105,7 +146,8 @@ export function ProbArc({
         stroke={trackColor}
         strokeWidth={8.5}
       />
-      {/* Progress */}
+
+      {/* Glowing arc — fills from 0 via CSS transition */}
       <circle
         cx={cx}
         cy={cy}
@@ -116,12 +158,35 @@ export function ProbArc({
         strokeLinecap="round"
         strokeDasharray={circumference}
         strokeDashoffset={offset}
+        filter={`url(#${uid})`}
         style={{
           transform: "rotate(-90deg)",
-          transformOrigin: "50% 50%",
-          transition: "stroke-dashoffset 0.75s cubic-bezier(0.4,0,0.2,1)",
+          transformOrigin: `${cx}px ${cy}px`,
+          transition: `stroke-dashoffset ${easing}`,
         }}
       />
+
+      {/* Spark tip — a <g> that rotates in sync with the arc fill */}
+      {showTip && (
+        <g
+          style={{
+            transform: `rotate(${tipDeg}deg)`,
+            transformOrigin: `${cx}px ${cy}px`,
+            transition: `transform ${easing}`,
+          }}
+        >
+          {/* Outer halo pulse */}
+          <circle cx={tipX} cy={tipY} r={8} fill={color} opacity={0.18} filter={`url(#${uid}t)`}>
+            <animate attributeName="r" values="7;11;7" dur="1.8s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.18;0.06;0.18" dur="1.8s" repeatCount="indefinite" />
+          </circle>
+          {/* Bright core dot */}
+          <circle cx={tipX} cy={tipY} r={4.5} fill={color} filter={`url(#${uid}t)`}>
+            <animate attributeName="r" values="4;5.5;4" dur="1.8s" repeatCount="indefinite" />
+          </circle>
+        </g>
+      )}
+
       {/* Center: percentage */}
       <text
         x={cx}
@@ -132,7 +197,7 @@ export function ProbArc({
         fill={color}
         fontFamily={ff}
       >
-        {clamped.toFixed(1)}%
+        {animPct > 0 ? clamped.toFixed(1) : "—"}%
       </text>
       {/* Center: outcome label */}
       {label && (
