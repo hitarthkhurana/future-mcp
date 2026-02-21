@@ -181,43 +181,22 @@ function parsePolymarketProbability(market: PolymarketRawMarket): {
   return { probability: topProb, label };
 }
 
-// Polymarket's public-search works best with short keyword phrases.
-// LLMs send full natural-language questions, so we strip the fluff first.
-function distillQuery(query: string): string {
-  const stopRe =
-    /\b(what|when|who|will|how|why|which|is|are|do|does|can|could|would|should|the|a|an|of|in|on|at|to|for|with|by|from|and|or|but|not|be|been|have|has|had|there|their|they|we|you|i|it|its|my|our|your|this|that|these|those|going|chance|chances|odds|likelihood|happen|happening|soon|ever|before|after|about|around|during|if)\b/gi;
-
-  const cleaned = query
-    .replace(stopRe, " ")
-    .replace(/[^a-z0-9\s]/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  // Take at most the first 5 meaningful words
-  const words = cleaned.split(" ").filter(Boolean).slice(0, 5);
-  return words.join(" ");
-}
-
-async function fetchPolymarketSearch(query: string): Promise<PolymarketRawMarket[]> {
-  const searchTerm = distillQuery(query);
-  const cacheKey = `pm:search:${searchTerm}`;
-  return cached(cacheKey, TTL_SHORT, async () => {
+// Fetch top Polymarket events by volume — same pattern as fetchKalshiEvents().
+// Local scoring via matchScore handles any query length without API limitations.
+async function fetchPolymarketTopEvents(): Promise<PolymarketRawMarket[]> {
+  return cached("pm:top", TTL_LONG, async () => {
     try {
-      console.info(`[pm] search term: "${searchTerm}" (from query: "${query.slice(0, 60)}")`);
       const response = await fetch(
-        `${GAMMA}/public-search?q=${encodeURIComponent(searchTerm)}&limit=8`
+        `${GAMMA}/events?active=true&closed=false&order=volume&ascending=false&limit=500`
       );
       if (!response.ok) return [];
-      const data = (await response.json()) as {
-        events?: Array<{ markets?: PolymarketRawMarket[] }>;
-      };
-
+      const events = (await response.json()) as Array<{
+        markets?: PolymarketRawMarket[];
+      }>;
       const markets: PolymarketRawMarket[] = [];
-      for (const event of data.events ?? []) {
-        for (const market of event.markets ?? []) {
-          if (market.active === true && market.closed === false) {
-            markets.push(market);
-          }
+      for (const event of events) {
+        for (const m of event.markets ?? []) {
+          if (m.active === true && m.closed === false) markets.push(m);
         }
       }
       return markets;
@@ -225,6 +204,60 @@ async function fetchPolymarketSearch(query: string): Promise<PolymarketRawMarket
       return [];
     }
   });
+}
+
+// Extract up to 4 meaningful keywords for the supplemental keyword-search path.
+function keywordsFromQuery(query: string): string {
+  const cleaned = query
+    .replace(/\b(what|when|who|will|how|why|which|is|are|do|does|can|could|would|should|the|a|an|of|in|on|at|to|for|with|by|from|and|or|but|not|be|been|have|has|had|there|their|they|we|you|i|it|its|my|our|your|this|that|these|those|going|chance|chances|odds|likelihood|happen|happening|soon|ever|before|after|about|around|during|if)\b/gi, " ")
+    .replace(/[^a-z0-9\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned.split(" ").filter(Boolean).slice(0, 4).join(" ");
+}
+
+// Supplement top-events cache with a keyword search for niche markets.
+async function fetchPolymarketKeywordSearch(query: string): Promise<PolymarketRawMarket[]> {
+  const term = keywordsFromQuery(query);
+  if (!term) return [];
+  return cached(`pm:search:${term}`, TTL_SHORT, async () => {
+    try {
+      const response = await fetch(
+        `${GAMMA}/public-search?q=${encodeURIComponent(term)}&limit=8`
+      );
+      if (!response.ok) return [];
+      const data = (await response.json()) as {
+        events?: Array<{ markets?: PolymarketRawMarket[] }>;
+      };
+      const markets: PolymarketRawMarket[] = [];
+      for (const event of data.events ?? []) {
+        for (const market of event.markets ?? []) {
+          if (market.active === true && market.closed === false) markets.push(market);
+        }
+      }
+      return markets;
+    } catch {
+      return [];
+    }
+  });
+}
+
+async function fetchPolymarketMarkets(query: string): Promise<PolymarketRawMarket[]> {
+  const [topMarkets, searchMarkets] = await Promise.all([
+    fetchPolymarketTopEvents(),
+    fetchPolymarketKeywordSearch(query),
+  ]);
+  // Dedupe by slug, top-events first so their cache entries take priority.
+  const seen = new Set<string>();
+  const combined: PolymarketRawMarket[] = [];
+  for (const m of [...topMarkets, ...searchMarkets]) {
+    const key = m.slug ?? (typeof m.id === "string" ? m.id : "") ?? "";
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      combined.push(m);
+    }
+  }
+  return combined;
 }
 
 function buildPolymarketCandidates(
@@ -629,7 +662,7 @@ export async function getPredictionInsight(query: string): Promise<PredictionIns
 
   const sourceStart = Date.now();
   const [polymarketRawMarkets, kalshiRawEvents] = await Promise.all([
-    fetchPolymarketSearch(query),
+    fetchPolymarketMarkets(query),
     fetchKalshiEvents(),
   ]);
   console.info(
