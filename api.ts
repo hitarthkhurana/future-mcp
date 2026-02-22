@@ -50,6 +50,56 @@ const STOP_WORDS = new Set([
   "who",
   "will",
   "with",
+  // Common question/query words with no topical signal.
+  "which",
+  "can",
+  "could",
+  "would",
+  "should",
+  "does",
+  "do",
+  "if",
+  "so",
+  "any",
+  "all",
+  "first",
+  "last",
+  "next",
+  "each",
+  "every",
+  "give",
+  "get",
+  "go",
+  "going",
+  "come",
+  "coming",
+  "think",
+  "know",
+  "see",
+  "need",
+  "want",
+  "say",
+  "tell",
+  "show",
+  "explain",
+  "describe",
+  "provide",
+  "available",
+  "live",
+  "real",
+  "latest",
+  "recent",
+  "new",
+  "current",
+  "today",
+  "now",
+  "soon",
+  "possible",
+  "likely",
+  "actually",
+  "also",
+  "just",
+  "even",
   // Domain stop words — appear in nearly every query but carry no topical signal.
   // "market" matches "market cap", "market consensus" etc. as false positives.
   "market",
@@ -62,11 +112,21 @@ const STOP_WORDS = new Set([
   "prediction",
   "expect",
   "expectations",
-  "current",
-  "now",
-  "today",
   "happen",
   "happening",
+  "company",
+  "companies",
+  "person",
+  "people",
+  "thing",
+  "things",
+  "time",
+  "year",
+  "years",
+  "date",
+  "day",
+  "week",
+  "month",
 ]);
 
 async function cached<T>(
@@ -229,14 +289,11 @@ async function fetchPolymarketTopEvents(): Promise<PolymarketRawMarket[]> {
   });
 }
 
-// Extract up to 4 meaningful keywords for the supplemental keyword-search path.
+// Extract up to 5 meaningful keywords for the supplemental keyword-search path.
+// Reuses the same tokenizer (including domain stop words) so named entities like
+// "anthropic" and "openai" are preserved while noise words are stripped.
 function keywordsFromQuery(query: string): string {
-  const cleaned = query
-    .replace(/\b(what|when|who|will|how|why|which|is|are|do|does|can|could|would|should|the|a|an|of|in|on|at|to|for|with|by|from|and|or|but|not|be|been|have|has|had|there|their|they|we|you|i|it|its|my|our|your|this|that|these|those|going|chance|chances|odds|likelihood|happen|happening|soon|ever|before|after|about|around|during|if)\b/gi, " ")
-    .replace(/[^a-z0-9\s]/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return cleaned.split(" ").filter(Boolean).slice(0, 4).join(" ");
+  return [...tokenize(query)].slice(0, 5).join(" ");
 }
 
 // Supplement top-events cache with a keyword search for niche markets.
