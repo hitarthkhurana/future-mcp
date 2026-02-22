@@ -4,6 +4,22 @@
 >
 > Before Future Insight, LLMs gave you a cautious non-answer. Now they give you live odds, market consensus, and real-time signals from X — all in one interactive widget.
 
+Future Insight is an MCP app that gives LLMs what they usually lack: up-to-date world-state, social/cultural signal, and quantified event expectations in one interactive response.
+
+## Why This Matters
+
+LLMs are strong at reasoning, but weak at staying synced to live reality. Users asking about politics, products, creators, media moments, or macro events need three things together:
+
+1. Fresh event context from the open web and X.
+2. Real-time social and culture signal (what people are actually reacting to now).
+3. A quantified expectation layer to anchor interpretation.
+
+Future Insight combines those signals into one MCP tool call and one widget so responses are timely, explainable, continuously interactive, and materially more useful.
+
+## App Interactivity
+
+This is not a static report UI. The widget is designed for continuous interaction with minimal friction: users can refresh in place, inspect alternates, and trigger follow-up model reasoning directly from the interface (`useCallTool()` + `sendFollowUpMessage()`), instead of restarting the workflow each turn.
+
 ---
 
 ## The Problem
