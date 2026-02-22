@@ -159,12 +159,10 @@ function matchScore(query: string, title: string, volume: number): number {
 
 function isOpenEndedOutcomeQuery(query: string): boolean {
   const normalized = normalize(query);
-  return (
-    normalized.startsWith("who ") ||
-    normalized.includes("who will") ||
-    normalized.startsWith("which ") ||
-    normalized.includes("which candidate")
-  );
+  // Only trigger for "who" queries (elections, person-based outcomes).
+  // "which company/team/country" queries are NOT open-ended outcome queries —
+  // sorting by probability there causes high-confidence unrelated markets to win.
+  return normalized.startsWith("who ") || normalized.includes("who will") || normalized.includes("which candidate");
 }
 
 function parseJsonArray(raw: unknown): string[] {
@@ -334,7 +332,11 @@ function pickPrimaryPolymarket(
   if (!confident.length) return null;
 
   if (isOpenEndedOutcomeQuery(query)) {
-    return [...confident].sort(
+    // Only reorder by probability among candidates within 0.08 of the top score.
+    // Prevents a high-confidence unrelated market from beating the correct match.
+    const topScore = confident[0].score;
+    const closeEnough = confident.filter((c) => topScore - c.score <= 0.08);
+    return [...closeEnough].sort(
       (a, b) => b.probability - a.probability || b.score - a.score
     )[0];
   }
@@ -436,7 +438,9 @@ function pickPrimaryKalshi(
   if (!confident.length) return null;
 
   if (isOpenEndedOutcomeQuery(query)) {
-    return [...confident].sort(
+    const topScore = confident[0].score;
+    const closeEnough = confident.filter((c) => topScore - c.score <= 0.08);
+    return [...closeEnough].sort(
       (a, b) => b.probability - a.probability || b.score - a.score
     )[0];
   }
