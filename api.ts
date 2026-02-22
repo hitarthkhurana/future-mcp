@@ -50,6 +50,23 @@ const STOP_WORDS = new Set([
   "who",
   "will",
   "with",
+  // Domain stop words — appear in nearly every query but carry no topical signal.
+  // "market" matches "market cap", "market consensus" etc. as false positives.
+  "market",
+  "markets",
+  "odds",
+  "chances",
+  "chance",
+  "probability",
+  "likelihood",
+  "prediction",
+  "expect",
+  "expectations",
+  "current",
+  "now",
+  "today",
+  "happen",
+  "happening",
 ]);
 
 async function cached<T>(
