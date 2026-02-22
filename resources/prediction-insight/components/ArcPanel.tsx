@@ -1,6 +1,59 @@
-import { ProbArc, formatVolume, type Colors } from "../../../shared";
+import { useState, useEffect } from "react";
+import { formatVolume, type Colors } from "../../../shared";
 import { K_GREEN, K_GREEN_DARK, PM_BLUE, PM_BLUE_DARK } from "../constants";
+import { PM_LOGO, KA_LOGO } from "../logos";
 import type { KalshiData, PolymarketData } from "../types";
+
+function ProbBar({
+  pct,
+  color,
+  trackColor,
+  label,
+}: {
+  pct: number;
+  color: string;
+  trackColor: string;
+  label: string;
+}) {
+  const [animPct, setAnimPct] = useState(0);
+  useEffect(() => {
+    setAnimPct(0);
+    const t = setTimeout(() => setAnimPct(pct), 60);
+    return () => clearTimeout(t);
+  }, [pct]);
+
+  return (
+    <div className="flex flex-col gap-1.5 w-full">
+      <div className="flex items-baseline justify-between">
+        <span
+          className="text-[28px] font-bold leading-none"
+          style={{ color }}
+        >
+          {animPct > 0 ? animPct.toFixed(1) : pct.toFixed(1)}%
+        </span>
+        <span
+          className="text-[11px] font-semibold uppercase tracking-wide"
+          style={{ color, opacity: 0.7 }}
+        >
+          {label}
+        </span>
+      </div>
+      <div
+        className="h-[10px] w-full overflow-hidden rounded-full"
+        style={{ backgroundColor: trackColor }}
+      >
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${Math.max(2, Math.min(98, animPct))}%`,
+            backgroundColor: color,
+            transition: "width 1.4s cubic-bezier(0.34, 1.2, 0.64, 1)",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function MarketArcCard({
   color,
@@ -39,74 +92,59 @@ function MarketArcCard({
   const stat = isKalshi
     ? `OI ${(selected as KalshiData).openInterest.toLocaleString()}`
     : `Vol ${formatVolume((selected as PolymarketData).volume)}`;
-  const isWeak = selected.score < 0.5;
 
   return (
     <div
-      className="flex flex-col items-center gap-2 rounded-[10px] p-3 text-center transition-colors"
+      className="flex flex-col gap-3 rounded-[10px] p-3.5 transition-colors"
       style={{
         ["--accent" as string]: color,
         backgroundColor: isExpanded ? activeBg : "transparent",
         outline: isExpanded ? `2px solid ${color}` : "none",
         outlineOffset: "-2px",
       }}
+      onMouseEnter={(e) => {
+        if (!isExpanded) (e.currentTarget as HTMLDivElement).style.backgroundColor = hoverBg;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.backgroundColor = isExpanded ? activeBg : "transparent";
+      }}
     >
-      {/* Logo */}
-      <img
-        src={logoSrc}
-        alt={sourceName}
-        style={{ height: 18, objectFit: "contain", opacity: 0.85 }}
-      />
-
-      {/* Arc */}
-      <button
-        type="button"
-        onClick={onToggleDetail}
-        className="cursor-pointer"
-        title={isExpanded ? "Hide details" : "Show details"}
-        onMouseEnter={(e) => {
-          if (!isExpanded) (e.currentTarget.parentElement as HTMLDivElement).style.backgroundColor = hoverBg;
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget.parentElement as HTMLDivElement).style.backgroundColor = isExpanded ? activeBg : "transparent";
-        }}
-      >
-        <ProbArc pct={pct} color={color} trackColor={trackColor} label={label} size={108} />
-      </button>
-
-      {/* Market title */}
-      <span className="max-w-[150px] text-center text-[11px] leading-[1.35] text-[var(--muted)]">
-        {selected.title.length > 60 ? `${selected.title.slice(0, 60)}…` : selected.title}
-      </span>
-
-      {/* Stat + weak match */}
-      <div className="flex flex-wrap items-center justify-center gap-1.5">
-        {isWeak && (
-          <span className="rounded-full bg-amber-500/10 px-[6px] py-[2px] text-[10px] font-semibold text-amber-500">
-            Weak match
-          </span>
+      {/* Top row: logo + candidate switcher */}
+      <div className="flex items-center justify-between">
+        <img
+          src={logoSrc}
+          alt={sourceName}
+          style={{ height: 20, objectFit: "contain", opacity: 0.9 }}
+        />
+        {candidates.length > 1 && (
+          <select
+            value={selectedIndex}
+            onChange={(e) => { e.stopPropagation(); onSelectIndex(Number(e.target.value)); }}
+            onClick={(e) => e.stopPropagation()}
+            className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-1.5 py-[3px] text-[10px] text-[var(--text)]"
+          >
+            {candidates.map((_, idx) => (
+              <option key={idx} value={idx}>
+                {idx === 0 ? "Top match" : `Alt ${idx}`}
+              </option>
+            ))}
+          </select>
         )}
-        <span className="text-[10px] text-[var(--muted)]">{stat}</span>
       </div>
 
-      {/* Candidate switcher */}
-      {candidates.length > 1 && (
-        <select
-          value={selectedIndex}
-          onChange={(e) => onSelectIndex(Number(e.target.value))}
-          onClick={(e) => e.stopPropagation()}
-          className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-1.5 py-1 text-[11px] text-[var(--text)]"
-        >
-          {candidates.map((_, idx) => (
-            <option key={idx} value={idx}>
-              {idx === 0 ? "Top match" : `Alt ${idx}`}
-            </option>
-          ))}
-        </select>
-      )}
+      {/* Probability bar */}
+      <ProbBar pct={pct} color={color} trackColor={trackColor} label={label} />
+
+      {/* Market title */}
+      <p className="m-0 text-[11px] leading-[1.4] text-[var(--muted)]">
+        {selected.title.length > 65 ? `${selected.title.slice(0, 65)}…` : selected.title}
+      </p>
+
+      {/* Stat */}
+      <p className="m-0 text-[10px] text-[var(--muted)]">{stat}</p>
 
       {/* Buttons */}
-      <div className="flex gap-1.5">
+      <div className="flex items-center gap-1.5">
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onTrade(); }}
@@ -117,7 +155,7 @@ function MarketArcCard({
         <button
           type="button"
           onClick={onToggleDetail}
-          className="flex items-center text-[10px] text-[var(--accent)]"
+          className="text-[10px] text-[var(--accent)]"
         >
           {isExpanded ? "▲ Hide" : "Details ▼"}
         </button>
@@ -158,8 +196,8 @@ export function ArcPanel({
   const dark = colors.bg === "#1a1a1a";
   const pmColor = dark ? PM_BLUE_DARK : PM_BLUE;
   const kColor = dark ? K_GREEN_DARK : K_GREEN;
-  const pmTrack = dark ? "rgba(107,135,255,0.18)" : "rgba(46,92,255,0.1)";
-  const kTrack = dark ? "rgba(77,217,160,0.18)" : "rgba(38,196,133,0.1)";
+  const pmTrack = dark ? "rgba(107,135,255,0.15)" : "rgba(46,92,255,0.1)";
+  const kTrack = dark ? "rgba(77,217,160,0.15)" : "rgba(38,196,133,0.1)";
 
   if (!polymarket && !kalshi) {
     return (
@@ -200,7 +238,7 @@ export function ArcPanel({
           <MarketArcCard
             color={pmColor}
             trackColor={pmTrack}
-            logoSrc="/polymarket.png"
+            logoSrc={PM_LOGO}
             sourceName="Polymarket"
             candidates={polymarketCandidates}
             selectedIndex={pmIndex}
@@ -220,7 +258,7 @@ export function ArcPanel({
           <MarketArcCard
             color={kColor}
             trackColor={kTrack}
-            logoSrc="/kalshi.png"
+            logoSrc={KA_LOGO}
             sourceName="Kalshi"
             candidates={kalshiCandidates}
             selectedIndex={kalshiIndex}
