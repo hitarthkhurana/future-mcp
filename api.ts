@@ -358,9 +358,11 @@ function buildPolymarketCandidates(
     const score = matchScore(query, title, volume);
     if (score <= 0) continue;
 
+    const clobTokenIds = parseJsonArray(market.clobTokenIds);
     candidates.push({
       title,
       slug,
+      clobTokenId: clobTokenIds[0] ?? null,
       probability: parsed.probability,
       probabilityLabel: parsed.label,
       volume,
@@ -459,12 +461,14 @@ function buildKalshiCandidates(
           ? (market.yes_sub_title ?? market.subtitle ?? "").trim() || "YES"
           : "YES";
 
+      const prevRaw = toNumber(market.previous_price_dollars);
       candidates.push({
         title: market.title,
         ticker: market.ticker,
         eventTicker: event.event_ticker,
         probability,
         probabilityLabel: outcomeLabel,
+        previousPrice: prevRaw > 0 ? prevRaw : null,
         volume: marketVolume,
         volume24h: toNumber(market.volume_24h),
         openInterest: toNumber(market.open_interest),

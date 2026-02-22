@@ -25,6 +25,7 @@ export interface KalshiRawMarket {
   yes_bid_dollars?: string;
   yes_ask_dollars?: string;
   last_price_dollars?: string;
+  previous_price_dollars?: string;
   volume?: number;
   volume_24h?: number;
   open_interest?: number;
@@ -43,6 +44,7 @@ export interface KalshiRawEvent {
 export interface PolymarketMatch {
   title: string;
   slug: string;
+  clobTokenId: string | null;
   probability: number;
   probabilityLabel: string;
   volume: number;
@@ -58,6 +60,7 @@ export interface KalshiMatch {
   eventTicker: string;
   probability: number;
   probabilityLabel: string;
+  previousPrice: number | null;
   volume: number;
   volume24h: number;
   openInterest: number;

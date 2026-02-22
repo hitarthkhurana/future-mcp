@@ -1,16 +1,8 @@
 import type { KalshiData, PolymarketData } from "./types";
 
-export type WatchlistItem = {
-  query: string;
-  eventTitle: string;
-  consensus: number | null;
-};
-
 export type WidgetState = {
   selectedPmIndex?: number;
   selectedKalshiIndex?: number;
-  watchlist?: WatchlistItem[];
-  showWatchlist?: boolean;
 };
 
 export function clampedIndex(index: number | undefined, size: number): number {

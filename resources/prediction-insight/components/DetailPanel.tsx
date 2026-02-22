@@ -1,7 +1,179 @@
+import { useEffect, useState } from "react";
 import { ProbBar, formatDate, formatVolume, type Colors } from "../../../shared";
 import { K_GREEN, K_GREEN_DARK, PM_BLUE, PM_BLUE_DARK } from "../constants";
 import { useOrderbook } from "../hooks/useOrderbook";
 import type { KalshiData, PolymarketData } from "../types";
+
+// ---------------------------------------------------------------------------
+// Sparkline — fetches Polymarket CLOB price history and renders an SVG line
+// ---------------------------------------------------------------------------
+
+interface PricePoint {
+  t: number;
+  p: number;
+}
+
+function Sparkline({
+  clobTokenId,
+  color,
+  trackColor,
+}: {
+  clobTokenId: string;
+  color: string;
+  trackColor: string;
+}) {
+  const [points, setPoints] = useState<PricePoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const startTs = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
+    fetch(
+      `https://clob.polymarket.com/prices-history?market=${encodeURIComponent(
+        clobTokenId
+      )}&startTs=${startTs}&fidelity=60`
+    )
+      .then((r) => {
+        if (!r.ok) throw new Error("non-ok");
+        return r.json() as Promise<{ history?: Array<{ t: number; p: number }> }>;
+      })
+      .then((data) => {
+        const history = data.history ?? [];
+        if (history.length < 2) {
+          setError(true);
+        } else {
+          setPoints(history);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, [clobTokenId]);
+
+  if (loading) {
+    return (
+      <p className="m-0 text-[11px]" style={{ color: trackColor }}>
+        Loading price history…
+      </p>
+    );
+  }
+
+  if (error || points.length < 2) {
+    return (
+      <p className="m-0 text-[11px]" style={{ color: trackColor }}>
+        Price history unavailable
+      </p>
+    );
+  }
+
+  // Normalise into SVG viewBox 0 0 200 50
+  const W = 200;
+  const H = 50;
+  const PAD = 2;
+  const minP = Math.min(...points.map((pt) => pt.p));
+  const maxP = Math.max(...points.map((pt) => pt.p));
+  const rangeP = maxP - minP || 0.001;
+  const minT = points[0].t;
+  const maxT = points[points.length - 1].t;
+  const rangeT = maxT - minT || 1;
+
+  const toX = (t: number) => PAD + ((t - minT) / rangeT) * (W - PAD * 2);
+  const toY = (p: number) => H - PAD - ((p - minP) / rangeP) * (H - PAD * 2);
+
+  const pathD = points
+    .map((pt, i) => `${i === 0 ? "M" : "L"} ${toX(pt.t).toFixed(1)} ${toY(pt.p).toFixed(1)}`)
+    .join(" ");
+
+  // Area fill path
+  const areaD =
+    pathD +
+    ` L ${toX(points[points.length - 1].t).toFixed(1)} ${H}` +
+    ` L ${toX(points[0].t).toFixed(1)} ${H} Z`;
+
+  const firstPct = (points[0].p * 100).toFixed(1);
+  const lastPct = (points[points.length - 1].p * 100).toFixed(1);
+  const delta = ((points[points.length - 1].p - points[0].p) * 100).toFixed(1);
+  const positive = parseFloat(delta) >= 0;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-[0.04em]" style={{ color: trackColor }}>
+          30-day price history (YES)
+        </span>
+        <span
+          className="text-[11px] font-semibold"
+          style={{ color: positive ? "#22c55e" : "#ef4444" }}
+        >
+          {positive ? "+" : ""}
+          {delta}pp
+        </span>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        className="w-full rounded-md"
+        style={{ height: 60 }}
+      >
+        <defs>
+          <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <path d={areaD} fill="url(#sparkGrad)" />
+        <path d={pathD} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+
+      <div className="flex justify-between text-[10px]" style={{ color: trackColor }}>
+        <span>30d ago: {firstPct}%</span>
+        <span>Now: {lastPct}%</span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 24h delta badge for Kalshi
+// ---------------------------------------------------------------------------
+
+function KalshiDeltaBadge({
+  current,
+  previous,
+  color,
+  muted,
+}: {
+  current: number;
+  previous: number;
+  color: string;
+  muted: string;
+}) {
+  const delta = ((current - previous) * 100).toFixed(1);
+  const positive = parseFloat(delta) >= 0;
+  const deltaColor = positive ? "#22c55e" : "#ef4444";
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] font-bold uppercase tracking-[0.04em]" style={{ color: muted }}>
+        24h change
+      </span>
+      <span className="text-[12px] font-semibold" style={{ color: deltaColor }}>
+        {positive ? "+" : ""}
+        {delta}pp
+      </span>
+      <span className="text-[11px]" style={{ color: muted }}>
+        ({(previous * 100).toFixed(1)}% → {(current * 100).toFixed(1)}%)
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Shared sub-components
+// ---------------------------------------------------------------------------
 
 function OrderbookSection({
   bids,
@@ -84,6 +256,10 @@ function StatGrid({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
 export function DetailPanel({
   side,
   pm,
@@ -150,6 +326,14 @@ export function DetailPanel({
             textColor={colors.no}
           />
         </div>
+
+        {pm.clobTokenId ? (
+          <Sparkline
+            clobTokenId={pm.clobTokenId}
+            color={pmColor}
+            trackColor={colors.textSecondary}
+          />
+        ) : null}
 
         <StatGrid
           cols="three"
@@ -228,6 +412,15 @@ export function DetailPanel({
             textColor={colors.no}
           />
         </div>
+
+        {kalshi.previousPrice != null && (
+          <KalshiDeltaBadge
+            current={kalshi.probability}
+            previous={kalshi.previousPrice}
+            color={kColor}
+            muted={colors.textSecondary}
+          />
+        )}
 
         <StatGrid
           cols="two"

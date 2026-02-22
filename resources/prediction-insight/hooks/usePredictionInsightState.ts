@@ -19,17 +19,13 @@ export function usePredictionInsightState(
     setState({ ...widgetState, ...patch });
   };
 
-  const watchlist = widgetState.watchlist ?? [];
-
   return {
     insight,
     pmIndex,
     kalshiIndex,
     selectedPolymarket,
     selectedKalshi,
-    liveConsensus: computeConsensus(selectedPolymarket, selectedKalshi),
-    watchlist,
-    showWatchlist: widgetState.showWatchlist ?? false,
+    liveConsensus: computeConsensus(selectedPolymarket, selectedKalshi) as number | null,
     patchState,
   };
 }

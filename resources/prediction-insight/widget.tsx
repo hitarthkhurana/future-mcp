@@ -7,7 +7,6 @@ import { FullscreenIcon } from "./components/FullscreenIcon";
 import { GrokCard } from "./components/GrokCard";
 import { Header } from "./components/Header";
 import { Pending } from "./components/Pending";
-import { WatchlistView } from "./components/WatchlistView";
 import { usePredictionInsightState } from "./hooks/usePredictionInsightState";
 import { type WidgetState } from "./state";
 import { propSchema, type InsightProps } from "./types";
@@ -57,28 +56,10 @@ const PredictionInsight = () => {
     selectedPolymarket,
     selectedKalshi,
     liveConsensus,
-    watchlist,
-    showWatchlist,
     patchState,
   } = usePredictionInsightState(props, state, setState as (nextState: WidgetState) => void);
 
-  const isStarred = watchlist.some((item) => item.query === insight.query);
   const isFullscreen = displayMode === "fullscreen" && !!isAvailable;
-
-  const toggleStar = () => {
-    const next = isStarred
-      ? watchlist.filter((item) => item.query !== insight.query)
-      : [
-          ...watchlist,
-          {
-            query: insight.query,
-            eventTitle: insight.eventTitle,
-            consensus: liveConsensus,
-          },
-        ];
-
-    patchState({ watchlist: next });
-  };
 
   return (
     <McpUseProvider autoSize={!isFullscreen}>
@@ -105,34 +86,8 @@ const PredictionInsight = () => {
             />
           </div>
 
-          <div className="flex shrink-0 gap-1.5 pt-0.5">
-            {watchlist.length > 0 && (
-              <button
-                onClick={() => patchState({ showWatchlist: !showWatchlist })}
-                title="View watchlist"
-                className="flex h-[30px] items-center justify-center gap-1 rounded-[7px] border px-2 text-[11px]"
-                style={{
-                  color: showWatchlist ? "#f59e0b" : colors.textSecondary,
-                  borderColor: showWatchlist ? "#f59e0b" : colors.border,
-                }}
-              >
-                ★ {watchlist.length}
-              </button>
-            )}
-
-            <button
-              onClick={toggleStar}
-              title={isStarred ? "Remove from watchlist" : "Add to watchlist"}
-              className="flex size-[30px] items-center justify-center rounded-[7px] border text-base"
-              style={{
-                color: isStarred ? "#f59e0b" : colors.textSecondary,
-                borderColor: isStarred ? "#f59e0b" : colors.border,
-              }}
-            >
-              {isStarred ? "★" : "☆"}
-            </button>
-
-            {isAvailable && (
+          {isAvailable && (
+            <div className="flex shrink-0 gap-1.5 pt-0.5">
               <button
                 onClick={() => requestDisplayMode(isFullscreen ? "inline" : "fullscreen").catch(() => {})}
                 title={isFullscreen ? "Exit fullscreen" : "Expand"}
@@ -141,40 +96,9 @@ const PredictionInsight = () => {
               >
                 <FullscreenIcon isFullscreen={isFullscreen} />
               </button>
-            )}
-          </div>
-        </div>
-
-        {showWatchlist && (
-          <div
-            className="rounded-xl border p-3.5"
-            style={{
-              borderColor: "#f59e0b40",
-              backgroundColor:
-                colors.bg === "#1a1a1a" ? "rgba(245,158,11,0.06)" : "rgba(245,158,11,0.04)",
-            }}
-          >
-            <div className="mb-2.5 flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-amber-500">Watchlist</span>
-              <span className="text-[11px] text-[var(--muted)]">Tap View to reload any market</span>
             </div>
-
-            <WatchlistView
-              items={watchlist}
-              onView={(query) => {
-                patchState({ showWatchlist: false });
-                callTool({ query });
-              }}
-              onRemove={(query) =>
-                patchState({
-                  watchlist: watchlist.filter((item) => item.query !== query),
-                })
-              }
-              isLoading={isRefreshing}
-              colors={colors}
-            />
-          </div>
-        )}
+          )}
+        </div>
 
         <ArcPanel
           polymarket={selectedPolymarket}

@@ -3,6 +3,7 @@ import { z } from "zod";
 const polymarketSchema = z.object({
   title: z.string(),
   slug: z.string(),
+  clobTokenId: z.string().nullable().optional(),
   probability: z.number(),
   probabilityLabel: z.string(),
   volume: z.number(),
@@ -18,6 +19,7 @@ const kalshiSchema = z.object({
   eventTicker: z.string(),
   probability: z.number(),
   probabilityLabel: z.string(),
+  previousPrice: z.number().nullable().optional(),
   volume: z.number(),
   volume24h: z.number(),
   openInterest: z.number(),
