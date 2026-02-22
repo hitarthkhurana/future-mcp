@@ -109,9 +109,17 @@ function jaccard(a: Set<string>, b: Set<string>): number {
 }
 
 function matchScore(query: string, title: string, volume: number): number {
-  const queryTokens = tokenize(query);
+  const allQueryTokens = tokenize(query);
   const titleTokens = tokenize(title);
-  if (!queryTokens.size || !titleTokens.size) return 0;
+  if (!allQueryTokens.size || !titleTokens.size) return 0;
+
+  // Cap query tokens to prevent long NL queries from diluting coverage scores.
+  // Prioritise tokens that also appear in the title (most relevant signal first).
+  const orderedQueryTokens = [
+    ...[...allQueryTokens].filter((t) => titleTokens.has(t)),
+    ...[...allQueryTokens].filter((t) => !titleTokens.has(t)),
+  ];
+  const queryTokens = new Set(orderedQueryTokens.slice(0, 8));
 
   const overlap = overlapCount(queryTokens, titleTokens);
   const minOverlap = queryTokens.size >= 4 ? 2 : 1;
@@ -305,7 +313,7 @@ function pickPrimaryPolymarket(
   candidates: PolymarketMatch[]
 ): PolymarketMatch | null {
   if (!candidates.length) return null;
-  const confident = candidates.filter((candidate) => candidate.score >= 0.34);
+  const confident = candidates.filter((candidate) => candidate.score >= 0.25);
   if (!confident.length) return null;
 
   if (isOpenEndedOutcomeQuery(query)) {
@@ -407,7 +415,7 @@ function pickPrimaryKalshi(
   candidates: KalshiMatch[]
 ): KalshiMatch | null {
   if (!candidates.length) return null;
-  const confident = candidates.filter((candidate) => candidate.score >= 0.34);
+  const confident = candidates.filter((candidate) => candidate.score >= 0.25);
   if (!confident.length) return null;
 
   if (isOpenEndedOutcomeQuery(query)) {
