@@ -7,7 +7,6 @@ import { FullscreenIcon } from "./components/FullscreenIcon";
 import { GrokCard } from "./components/GrokCard";
 import { Header } from "./components/Header";
 import { Pending } from "./components/Pending";
-import { SourceCard } from "./components/SourceCard";
 import { WatchlistView } from "./components/WatchlistView";
 import { usePredictionInsightState } from "./hooks/usePredictionInsightState";
 import { type WidgetState } from "./state";
@@ -63,7 +62,6 @@ const PredictionInsight = () => {
     patchState,
   } = usePredictionInsightState(props, state, setState as (nextState: WidgetState) => void);
 
-  const visibleSources = Number(Boolean(selectedPolymarket)) + Number(Boolean(selectedKalshi));
   const isStarred = watchlist.some((item) => item.query === insight.query);
   const isFullscreen = displayMode === "fullscreen" && !!isAvailable;
 
@@ -181,6 +179,12 @@ const PredictionInsight = () => {
         <ArcPanel
           polymarket={selectedPolymarket}
           kalshi={selectedKalshi}
+          polymarketCandidates={insight.polymarketCandidates}
+          kalshiCandidates={insight.kalshiCandidates}
+          pmIndex={pmIndex}
+          kalshiIndex={kalshiIndex}
+          onSelectPmIndex={(i) => patchState({ selectedPmIndex: i })}
+          onSelectKalshiIndex={(i) => patchState({ selectedKalshiIndex: i })}
           consensus={liveConsensus}
           colors={colors}
           onTrade={openExternal}
@@ -197,33 +201,6 @@ const PredictionInsight = () => {
             onTrade={openExternal}
             colors={colors}
           />
-        )}
-
-        {visibleSources > 0 && (
-          <div className={`grid gap-3 ${visibleSources === 1 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"}`}>
-            {selectedPolymarket && (
-              <SourceCard
-                title="Polymarket"
-                selectedIndex={pmIndex}
-                onSelect={(nextIndex) => patchState({ selectedPmIndex: nextIndex })}
-                options={insight.polymarketCandidates}
-                selected={selectedPolymarket}
-                colors={colors}
-                isKalshi={false}
-              />
-            )}
-            {selectedKalshi && (
-              <SourceCard
-                title="Kalshi"
-                selectedIndex={kalshiIndex}
-                onSelect={(nextIndex) => patchState({ selectedKalshiIndex: nextIndex })}
-                options={insight.kalshiCandidates}
-                selected={selectedKalshi}
-                colors={colors}
-                isKalshi
-              />
-            )}
-          </div>
         )}
 
         <GrokCard

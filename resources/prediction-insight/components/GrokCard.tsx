@@ -77,6 +77,12 @@ export function GrokCard({
         ["--link" as string]: colors.link,
       }}
     >
+      <div className="flex items-center gap-1.5">
+        <img src="/grok.svg" alt="Grok" style={{ height: 14, opacity: 0.7 }} />
+        <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--muted)]">
+          Grok Analysis (X Search)
+        </span>
+      </div>
       <div className="m-0 whitespace-pre-wrap text-[13px] leading-[1.6] text-[var(--text)]">
         {renderGrokText(text, onLink)}
       </div>
